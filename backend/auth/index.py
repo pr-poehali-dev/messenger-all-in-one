@@ -1,11 +1,13 @@
 """
 Авторизация: регистрация, вход, проверка сессии, выход.
+Вход и регистрация по номеру телефона + пароль.
 Action передаётся в теле запроса: {"action": "register"|"login"|"me"|"logout"}
 """
 import json
 import os
 import hashlib
 import secrets
+import re
 import psycopg2
 
 SCHEMA = os.environ.get('MAIN_DB_SCHEMA', 't_p83659847_messenger_all_in_one')
@@ -20,6 +22,12 @@ def get_conn():
 
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
+
+def normalize_phone(raw: str) -> str:
+    digits = re.sub(r'\D', '', raw)
+    if digits.startswith('8') and len(digits) == 11:
+        digits = '7' + digits[1:]
+    return digits
 
 def resp(status, data):
     return {'statusCode': status, 'headers': CORS, 'body': data}
@@ -44,27 +52,31 @@ def handler(event: dict, context) -> dict:
 
     try:
         if action == 'register':
-            username = body.get('username', '').strip().lower()
+            phone_raw = body.get('phone', '').strip()
             display_name = body.get('display_name', '').strip()
             password = body.get('password', '')
 
-            if not username or not password or not display_name:
+            if not phone_raw or not password or not display_name:
                 return resp(400, {'error': 'Заполните все поля'})
-            if len(username) < 3:
-                return resp(400, {'error': 'Логин минимум 3 символа'})
             if len(password) < 6:
                 return resp(400, {'error': 'Пароль минимум 6 символов'})
 
+            phone = normalize_phone(phone_raw)
+            if len(phone) < 10:
+                return resp(400, {'error': 'Введите корректный номер телефона'})
+
             pw_hash = hash_password(password)
+            username = 'u' + phone
+
             try:
                 cur.execute(
-                    f"INSERT INTO {SCHEMA}.users (username, display_name, password_hash) VALUES (%s, %s, %s) RETURNING id",
-                    (username, display_name, pw_hash)
+                    f"INSERT INTO {SCHEMA}.users (username, display_name, password_hash, phone) VALUES (%s, %s, %s, %s) RETURNING id",
+                    (username, display_name, pw_hash, phone)
                 )
                 user_id = cur.fetchone()[0]
             except psycopg2.errors.UniqueViolation:
                 conn.rollback()
-                return resp(409, {'error': 'Логин уже занят'})
+                return resp(409, {'error': 'Этот номер уже зарегистрирован'})
 
             tok = secrets.token_hex(32)
             cur.execute(f"INSERT INTO {SCHEMA}.sessions (user_id, token) VALUES (%s, %s)", (user_id, tok))
@@ -72,20 +84,22 @@ def handler(event: dict, context) -> dict:
             return resp(200, {'token': tok, 'user': {'id': user_id, 'username': username, 'display_name': display_name}})
 
         if action == 'login':
-            username = body.get('username', '').strip().lower()
+            phone_raw = body.get('phone', '').strip()
             password = body.get('password', '')
 
-            if not username or not password:
-                return resp(400, {'error': 'Введите логин и пароль'})
+            if not phone_raw or not password:
+                return resp(400, {'error': 'Введите номер телефона и пароль'})
 
+            phone = normalize_phone(phone_raw)
             pw_hash = hash_password(password)
+
             cur.execute(
-                f"SELECT id, username, display_name FROM {SCHEMA}.users WHERE username=%s AND password_hash=%s",
-                (username, pw_hash)
+                f"SELECT id, username, display_name FROM {SCHEMA}.users WHERE phone=%s AND password_hash=%s",
+                (phone, pw_hash)
             )
             user = cur.fetchone()
             if not user:
-                return resp(401, {'error': 'Неверный логин или пароль'})
+                return resp(401, {'error': 'Неверный номер или пароль'})
 
             tok = secrets.token_hex(32)
             cur.execute(f"INSERT INTO {SCHEMA}.sessions (user_id, token) VALUES (%s, %s)", (user[0], tok))

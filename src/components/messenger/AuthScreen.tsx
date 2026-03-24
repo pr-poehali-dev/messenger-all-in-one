@@ -6,13 +6,34 @@ interface AuthScreenProps {
   onAuth: (user: { id: number; username: string; display_name: string }, token: string) => void;
 }
 
+function formatPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) return '';
+  let d = digits;
+  if (d.startsWith('8')) d = '7' + d.slice(1);
+  if (!d.startsWith('7')) d = '7' + d;
+  d = d.slice(0, 11);
+
+  let result = '+7';
+  if (d.length > 1) result += ' (' + d.slice(1, 4);
+  if (d.length >= 4) result += ') ' + d.slice(4, 7);
+  if (d.length >= 7) result += '-' + d.slice(7, 9);
+  if (d.length >= 9) result += '-' + d.slice(9, 11);
+  return result;
+}
+
 export default function AuthScreen({ onAuth }: AuthScreenProps) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [username, setUsername] = useState('');
+  const [phone, setPhone] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhone(e.target.value);
+    setPhone(formatted);
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,9 +42,9 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
     try {
       let result;
       if (mode === 'register') {
-        result = await api.register(username, displayName, password);
+        result = await api.register(phone, displayName, password);
       } else {
-        result = await api.login(username, password);
+        result = await api.login(phone, password);
       }
       localStorage.setItem('pulse_token', result.token);
       localStorage.setItem('pulse_user', JSON.stringify(result.user));
@@ -48,15 +69,16 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
 
         <form onSubmit={submit} className="auth-form">
           <div className="auth-field">
-            <label className="auth-label">Логин</label>
+            <label className="auth-label">Номер телефона</label>
             <div className="auth-input-wrap">
-              <Icon name="AtSign" size={16} className="auth-input-icon" />
+              <Icon name="Phone" size={16} className="auth-input-icon" />
               <input
                 className="auth-input"
-                placeholder="username"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                autoComplete="username"
+                type="tel"
+                placeholder="+7 (___) ___-__-__"
+                value={phone}
+                onChange={handlePhoneChange}
+                autoComplete="tel"
                 required
               />
             </div>

@@ -1,10 +1,10 @@
 {
   "tests": [
     {
-      "name": "Register new user",
+      "name": "Register new user by phone",
       "method": "POST",
       "path": "/",
-      "body": {"action": "register", "username": "testpulse99", "display_name": "Тест Юзер", "password": "pass123456"},
+      "body": {"action": "register", "phone": "+79007771122", "display_name": "Тест Юзер", "password": "pass123456"},
       "expectedStatus": 200,
       "expectedBody": {"token": "string"},
       "bodyMatcher": "partial"
@@ -13,16 +13,16 @@
       "name": "Login wrong password",
       "method": "POST",
       "path": "/",
-      "body": {"action": "login", "username": "testpulse99", "password": "wrongpass"},
+      "body": {"action": "login", "phone": "+79007771122", "password": "wrongpass"},
       "expectedStatus": 401,
       "expectedBody": {"error": "string"},
       "bodyMatcher": "partial"
     },
     {
-      "name": "Login correct",
+      "name": "Login correct by phone",
       "method": "POST",
       "path": "/",
-      "body": {"action": "login", "username": "testpulse99", "password": "pass123456"},
+      "body": {"action": "login", "phone": "+79007771122", "password": "pass123456"},
       "expectedStatus": 200,
       "expectedBody": {"token": "string"},
       "bodyMatcher": "partial"

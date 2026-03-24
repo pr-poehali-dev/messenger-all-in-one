@@ -27,22 +27,22 @@ async function parseBody(res: Response) {
 }
 
 export const api = {
-  async register(username: string, displayName: string, password: string) {
+  async register(phone: string, displayName: string, password: string) {
     const res = await fetch(AUTH_URL, {
       method: 'POST',
       headers: headers(),
-      body: JSON.stringify({ action: 'register', username, display_name: displayName, password }),
+      body: JSON.stringify({ action: 'register', phone, display_name: displayName, password }),
     });
     const data = await parseBody(res);
     if (!res.ok) throw new Error(data.error || 'Ошибка регистрации');
     return data as { token: string; user: { id: number; username: string; display_name: string } };
   },
 
-  async login(username: string, password: string) {
+  async login(phone: string, password: string) {
     const res = await fetch(AUTH_URL, {
       method: 'POST',
       headers: headers(),
-      body: JSON.stringify({ action: 'login', username, password }),
+      body: JSON.stringify({ action: 'login', phone, password }),
     });
     const data = await parseBody(res);
     if (!res.ok) throw new Error(data.error || 'Ошибка входа');
